@@ -10,6 +10,8 @@ from datetime import datetime
 from collections import Counter
 from PIL import Image
 import streamlit as st
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 # ── ENVIRONMENT DETECTION ──────────────────────────────────────────────────────
@@ -82,6 +84,15 @@ def _append_log_row(row: dict):
     st.session_state.inspection_log = pd.concat(
         [st.session_state.inspection_log, new_row], ignore_index=True
     )
+
+
+def _fig_to_png(fig) -> bytes:
+    """Render a matplotlib figure to PNG bytes and close it."""
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=100, bbox_inches="tight")
+    plt.close(fig)
+    buf.seek(0)
+    return buf.getvalue()
 
 
 @st.cache_resource
@@ -192,7 +203,6 @@ def render_batch_summary(batch_results: list, skipped_files: list):
     st.divider()
     st.subheader("Batch Processing Summary")
 
-    total = len(batch_results) + len(skipped_files)
     defective = sum(1 for r in batch_results if r["total_defects"] > 0)
     clean = sum(1 for r in batch_results if r["total_defects"] == 0)
 
@@ -220,9 +230,7 @@ def render_batch_summary(batch_results: list, skipped_files: list):
             defect_counts.plot(kind="barh", ax=ax, color="#4A90D9")
             ax.set_xlabel("Count")
             ax.set_title("Defects Found in This Batch")
-            plt.tight_layout()
-            st.pyplot(fig)
-            plt.close(fig)
+            st.image(_fig_to_png(fig), use_container_width=True)
 
     # Download annotated images as ZIP
     annotated_images = [r for r in batch_results if r.get("annotated_path")]
@@ -264,66 +272,22 @@ def render_batch_summary(batch_results: list, skipped_files: list):
 # ══════════════════════════════════════════════════════════════════════════════
 st.set_page_config(page_title="Siemens Energy Welding AI", layout="wide")
 
-# Inject CSS to stabilize layout and prevent jitter
+# Inject CSS to stabilize layout — prevent jitter on rerun
 st.markdown("""
 <style>
-    /* Lock metric card heights so they never collapse/expand */
+    /* Lock metric card heights */
     [data-testid="stMetric"] {
         min-height: 90px;
         max-height: 90px;
         overflow: hidden;
     }
-
-    /* Stabilize column blocks — prevent height thrashing */
+    /* Columns always align to top */
     [data-testid="stHorizontalBlock"] {
         align-items: flex-start !important;
     }
-
-    /* Lock chart containers to fixed height to prevent reflow */
-    [data-testid="stVegaLiteChart"],
-    .stPyplot {
-        min-height: 320px;
-        overflow: hidden;
-    }
-
-    /* Stabilize image containers in results section */
-    [data-testid="stImage"] {
-        min-height: 100px;
-    }
-
-    /* Prevent progress bar from causing reflow */
-    .stProgress {
-        min-height: 30px;
-    }
-
-    /* Anchor scroll position — prevents page jump on rerun */
-    [data-testid="stMainBlockContainer"] {
-        overflow-anchor: auto;
-    }
-
-    /* Prevent table reflow */
-    [data-testid="stTable"] {
-        min-height: 60px;
-    }
-
-    /* Smooth out Streamlit's default transitions */
-    [data-testid="stMainBlockContainer"] * {
-        transition: none !important;
-    }
-
-    /* Prevent file uploader from resizing on state change */
+    /* Prevent file uploader resize */
     [data-testid="stFileUploader"] {
         min-height: 120px;
-    }
-
-    /* Lock expander height when closed */
-    [data-testid="stExpander"] {
-        min-height: 48px;
-    }
-
-    /* Prevent download buttons from shifting layout */
-    .stDownloadButton {
-        min-height: 48px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -394,7 +358,6 @@ if uploaded_files and model:
     )
 
     if run_clicked:
-        # Create a fixed-size container for the processing view to prevent jitter
         processing_container = st.container()
         with processing_container:
             progress_bar = st.progress(0, text="Starting inspection...")
@@ -408,7 +371,6 @@ if uploaded_files and model:
         for idx, file in enumerate(uploaded_files):
             safe_name = sanitize_filename(file.name)
 
-            # Validate image
             is_valid, error_msg, img = validate_image(file)
             if not is_valid:
                 skipped_files.append({"name": file.name, "reason": error_msg})
@@ -418,7 +380,6 @@ if uploaded_files and model:
                 )
                 continue
 
-            # YOLO inference
             results = model(img, conf=conf_slider)[0]
             detected_labels = []
 
@@ -433,7 +394,6 @@ if uploaded_files and model:
                     cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
                     cv2.putText(img, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
-            # Live preview — update placeholders in-place (no layout shift)
             img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             img_slot.image(img_rgb, caption=f"Inspecting: {safe_name}", use_container_width=True)
 
@@ -474,7 +434,6 @@ if uploaded_files and model:
         _persist_csv()
         progress_bar.progress(1.0, text="Inspection complete!")
 
-        # Store results in session state so they persist across reruns
         st.session_state.processing_done = True
         st.session_state.batch_results = batch_results
         st.session_state.skipped_files = skipped_files
@@ -482,93 +441,114 @@ if uploaded_files and model:
 elif uploaded_files and not model:
     st.error("Cannot process images — model failed to load. Check the model path.")
 
-# Show batch summary from session state (persists without jitter on rerun)
+# Show batch summary from session state
 if st.session_state.processing_done and st.session_state.batch_results:
     render_batch_summary(st.session_state.batch_results, st.session_state.skipped_files)
 
-# ── ANALYTICS DASHBOARD ────────────────────────────────────────────────────────
-st.divider()
-st.subheader("Inspection Analytics Dashboard")
+# ── ANALYTICS DASHBOARD (isolated as a fragment) ─────────────────────────────
+# @st.fragment prevents this section from re-rendering when widgets OUTSIDE
+# this function change (e.g. file uploader, Run button, sidebar slider).
+# Only widgets INSIDE this fragment (search, filter, selectbox) trigger a rerun
+# of this section alone — no full-page rerun, no flicker.
 
-df = st.session_state.inspection_log
+@st.fragment
+def analytics_dashboard():
+    st.divider()
+    st.subheader("Inspection Analytics Dashboard")
 
-if not df.empty:
+    df = st.session_state.inspection_log
+
+    if df.empty:
+        st.info("Welcome! Drag and drop images into the portal above to generate your inspection dashboard.")
+        return
+
     filtered_df = df.copy()
 
-    if search_query:
-        escaped = re.escape(search_query)
+    # Inline search & filter (inside fragment so they only trigger fragment reruns)
+    fcol1, fcol2, fcol3 = st.columns([2, 2, 1])
+    with fcol1:
+        frag_search = st.text_input(
+            "Search Image Name",
+            key="frag_search",
+            placeholder="e.g. weld_01.jpg",
+        )
+    with fcol2:
+        frag_defect = st.selectbox(
+            "Filter by Defect Type",
+            ["All"] + list(CLASSES.values()),
+            key="frag_defect",
+        )
+
+    if frag_search:
+        escaped = re.escape(frag_search)
         filtered_df = filtered_df[
             filtered_df["image_name"].str.contains(escaped, case=False, na=False)
         ]
-    if filter_defect != "All":
-        escaped = re.escape(filter_defect)
+    if frag_defect != "All":
+        escaped = re.escape(frag_defect)
         filtered_df = filtered_df[
             filtered_df["defect_classes"].str.contains(escaped, case=False, na=False)
         ]
 
-    if not filtered_df.empty:
-        # KPI row
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Defective Images", len(filtered_df))
-        m2.metric("Total Defects Found", int(filtered_df["total_defects"].sum()))
-        m3.metric("Avg Severity", f"{filtered_df['total_defects'].mean():.1f}")
-
-        # Defect distribution charts
-        st.subheader("Defect Type Distribution")
-        all_labels = []
-        for s in filtered_df["defect_summary"].dropna():
-            for item in str(s).split(","):
-                label = item.split("(")[0].strip()
-                if label:
-                    all_labels.append(label)
-
-        if all_labels:
-            label_counts = pd.Series(all_labels).value_counts()
-            col_chart, col_pie = st.columns([2, 1])
-
-            # Use matplotlib bar chart instead of st.bar_chart (Vega-Lite)
-            # to avoid iframe resize jitter
-            with col_chart:
-                fig_bar, ax_bar = plt.subplots(figsize=(6, 3.5))
-                ax_bar.barh(label_counts.index[::-1], label_counts.values[::-1], color="#4A90D9")
-                ax_bar.set_xlabel("Count")
-                ax_bar.set_title("Defect Type Distribution")
-                fig_bar.tight_layout()
-                st.pyplot(fig_bar)
-                plt.close(fig_bar)
-
-            with col_pie:
-                fig_pie, ax_pie = plt.subplots(figsize=(4, 3.5))
-                ax_pie.pie(label_counts, labels=label_counts.index, autopct="%1.1f%%", startangle=90)
-                fig_pie.tight_layout()
-                st.pyplot(fig_pie)
-                plt.close(fig_pie)
-
-        # Image history viewer — fixed-height container to prevent layout shift
-        st.divider()
-        st.subheader("Detailed Visual Inspection")
-        selected_img = st.selectbox("Select Image from History:", filtered_df["image_name"].unique())
-
-        if selected_img:
-            img_path = os.path.join(OUTPUT_IMG_DIR, selected_img)
-            if os.path.exists(img_path):
-                viewer = st.container()
-                with viewer:
-                    c1, c2 = st.columns([2, 1])
-                    c1.image(img_path, use_container_width=True)
-                    c2.dataframe(
-                        filtered_df[filtered_df["image_name"] == selected_img],
-                        use_container_width=True,
-                        hide_index=True,
-                    )
-
-        st.download_button(
-            "Download Full Report (CSV)",
-            filtered_df.to_csv(index=False),
-            "welding_report.csv",
-            "text/csv",
-        )
-    else:
+    if filtered_df.empty:
         st.warning("No records found for the current search/filter.")
-else:
-    st.info("Welcome! Drag and drop images into the portal above to generate your inspection dashboard.")
+        return
+
+    # KPI row
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Defective Images", len(filtered_df))
+    m2.metric("Total Defects Found", int(filtered_df["total_defects"].sum()))
+    m3.metric("Avg Severity", f"{filtered_df['total_defects'].mean():.1f}")
+
+    # Defect distribution charts — rendered to PNG bytes via st.image()
+    # (st.pyplot recreates a canvas on every rerun, causing flicker;
+    #  st.image just swaps a <img> tag — no flicker)
+    all_labels = []
+    for s in filtered_df["defect_summary"].dropna():
+        for item in str(s).split(","):
+            label = item.split("(")[0].strip()
+            if label:
+                all_labels.append(label)
+
+    if all_labels:
+        st.subheader("Defect Type Distribution")
+        label_counts = pd.Series(all_labels).value_counts()
+        col_chart, col_pie = st.columns([2, 1])
+
+        with col_chart:
+            fig_bar, ax_bar = plt.subplots(figsize=(6, 3.5))
+            ax_bar.barh(label_counts.index[::-1], label_counts.values[::-1], color="#4A90D9")
+            ax_bar.set_xlabel("Count")
+            ax_bar.set_title("Defect Type Distribution")
+            st.image(_fig_to_png(fig_bar), use_container_width=True)
+
+        with col_pie:
+            fig_pie, ax_pie = plt.subplots(figsize=(4, 3.5))
+            ax_pie.pie(label_counts, labels=label_counts.index, autopct="%1.1f%%", startangle=90)
+            st.image(_fig_to_png(fig_pie), use_container_width=True)
+
+    # Image history viewer
+    st.divider()
+    st.subheader("Detailed Visual Inspection")
+    selected_img = st.selectbox("Select Image from History:", filtered_df["image_name"].unique())
+
+    if selected_img:
+        img_path = os.path.join(OUTPUT_IMG_DIR, selected_img)
+        if os.path.exists(img_path):
+            c1, c2 = st.columns([2, 1])
+            c1.image(img_path, use_container_width=True)
+            c2.dataframe(
+                filtered_df[filtered_df["image_name"] == selected_img],
+                use_container_width=True,
+                hide_index=True,
+            )
+
+    st.download_button(
+        "Download Full Report (CSV)",
+        filtered_df.to_csv(index=False),
+        "welding_report.csv",
+        "text/csv",
+    )
+
+
+analytics_dashboard()
