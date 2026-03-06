@@ -1,4 +1,6 @@
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
+} from "recharts";
 import { Download, ShieldCheck, ShieldAlert, ShieldX, FileStack } from "lucide-react";
 import { KpiCard, Card } from "./ui";
 import { getExportCsvUrl, getExportZipUrl } from "../lib/api";
@@ -24,29 +26,39 @@ export function BatchSummary({
     .sort((a, b) => b.count - a.count);
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <h2 className="text-lg font-semibold">Batch Summary</h2>
+    <div className="space-y-5 animate-fade-in-up">
+      <div className="flex items-center gap-3">
+        <div className="w-1 h-6 rounded-full bg-[var(--accent)]" />
+        <h2 className="text-base font-bold">Batch Results</h2>
+      </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KpiCard title="Total Processed" value={summary.total} icon={<FileStack size={20} />} color="var(--accent)" />
-        <KpiCard title="Defective" value={summary.defective} icon={<ShieldAlert size={20} />} color="var(--danger)" />
-        <KpiCard title="Clean" value={summary.clean} icon={<ShieldCheck size={20} />} color="var(--success)" />
-        <KpiCard title="Skipped" value={summary.skipped} icon={<ShieldX size={20} />} color="var(--warning)" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <KpiCard title="Processed" value={summary.total} icon={<FileStack size={18} />} color="var(--accent)" />
+        <KpiCard title="Defective" value={summary.defective} icon={<ShieldAlert size={18} />} color="var(--danger)" />
+        <KpiCard title="Clean" value={summary.clean} icon={<ShieldCheck size={18} />} color="var(--success)" />
+        <KpiCard title="Skipped" value={summary.skipped} icon={<ShieldX size={18} />} color="var(--warning)" />
       </div>
 
       {chartData.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_280px] gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_240px] gap-3">
           <Card>
-            <h3 className="text-sm text-[var(--text-secondary)] mb-4">Defect Distribution</h3>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={chartData} layout="vertical" margin={{ left: 20 }}>
-                <XAxis type="number" tick={{ fill: "#8b8fa3", fontSize: 12 }} />
-                <YAxis type="category" dataKey="name" tick={{ fill: "#8b8fa3", fontSize: 12 }} width={130} />
+            <h3 className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)] mb-4">
+              Defect Distribution
+            </h3>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={chartData} layout="vertical" margin={{ left: 10 }}>
+                <XAxis type="number" tick={{ fill: "#4a4e62", fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis type="category" dataKey="name" tick={{ fill: "#8b8fa3", fontSize: 11 }} width={120} axisLine={false} tickLine={false} />
                 <Tooltip
-                  contentStyle={{ background: "#1a1d27", border: "1px solid #2a2d3a", borderRadius: 8 }}
-                  labelStyle={{ color: "#f0f0f0" }}
+                  contentStyle={{
+                    background: "rgba(17, 20, 30, 0.95)",
+                    border: "1px solid rgba(255,255,255,0.06)",
+                    borderRadius: 12,
+                    boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+                  }}
+                  labelStyle={{ color: "#e8eaf0" }}
                 />
-                <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                <Bar dataKey="count" radius={[0, 6, 6, 0]}>
                   {chartData.map((entry) => (
                     <Cell key={entry.name} fill={DEFECT_COLORS[entry.name] || "var(--accent)"} />
                   ))}
@@ -58,17 +70,17 @@ export function BatchSummary({
           <div className="space-y-3">
             <a
               href={getExportZipUrl()}
-              className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] text-sm hover:border-[var(--accent)] transition-colors"
+              className="glass flex items-center justify-center gap-2 w-full py-3.5 rounded-xl text-sm font-medium hover:border-[var(--accent)]/40 transition-all group"
             >
-              <Download size={16} className="text-[var(--accent)]" />
-              Download Annotated (ZIP)
+              <Download size={15} className="text-[var(--accent)] group-hover:scale-110 transition-transform" />
+              Annotated Images (ZIP)
             </a>
             <a
               href={getExportCsvUrl()}
-              className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] text-sm hover:border-[var(--accent)] transition-colors"
+              className="glass flex items-center justify-center gap-2 w-full py-3.5 rounded-xl text-sm font-medium hover:border-[var(--accent)]/40 transition-all group"
             >
-              <Download size={16} className="text-[var(--accent)]" />
-              Download Report (CSV)
+              <Download size={15} className="text-[var(--accent)] group-hover:scale-110 transition-transform" />
+              Inspection Report (CSV)
             </a>
           </div>
         </div>
@@ -76,13 +88,14 @@ export function BatchSummary({
 
       {summary.skipped_files.length > 0 && (
         <Card>
-          <h3 className="text-sm text-[var(--warning)] mb-2">
+          <h3 className="text-xs font-medium uppercase tracking-wider text-[var(--warning)] mb-3">
             Skipped Files ({summary.skipped_files.length})
           </h3>
-          <div className="space-y-1 text-sm">
+          <div className="space-y-1.5 text-sm">
             {summary.skipped_files.map((sf, i) => (
               <p key={i} className="text-[var(--text-secondary)]">
-                <strong>{sf.name}</strong> — {sf.reason}
+                <span className="text-[var(--text-primary)] font-medium">{sf.name}</span>
+                <span className="text-[var(--text-muted)]"> — {sf.reason}</span>
               </p>
             ))}
           </div>

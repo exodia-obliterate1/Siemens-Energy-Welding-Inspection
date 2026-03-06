@@ -12,22 +12,25 @@ export function ImageDetailModal({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-[70] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={onClose}
+    >
       <div
-        className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-fade-in"
+        className="glass-strong rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto shadow-2xl shadow-black/50 animate-fade-in"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
+        <div className="flex items-center justify-between p-5 border-b border-[var(--border)]">
           <div>
-            <h3 className="font-semibold">{result.image_name}</h3>
-            <p className="text-xs text-[var(--text-muted)]">{result.timestamp}</p>
+            <h3 className="font-bold">{result.image_name}</h3>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5">{result.timestamp}</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-[var(--border)] rounded-lg transition-colors">
-            <X size={18} />
+          <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-lg transition-colors">
+            <X size={18} className="text-[var(--text-secondary)]" />
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_300px]">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_280px]">
           <div className="p-4 bg-[var(--bg-primary)] flex items-center justify-center min-h-[400px]">
             {result.has_annotated_image ? (
               <img
@@ -40,27 +43,35 @@ export function ImageDetailModal({
             )}
           </div>
 
-          <div className="p-4 border-l border-[var(--border)]">
-            <h4 className="text-sm font-medium text-[var(--text-secondary)] mb-3">
-              Defects Found: {result.total_defects}
-            </h4>
+          <div className="p-5 border-l border-[var(--border)]">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">
+                Defects Found
+              </h4>
+              <span className="text-lg font-bold text-[var(--accent)]">
+                {result.total_defects}
+              </span>
+            </div>
 
             {result.defects.length > 0 ? (
               <div className="space-y-2">
                 {result.defects.map((d, i) => (
                   <div
                     key={i}
-                    className="flex items-center justify-between p-2 rounded-lg bg-[var(--bg-primary)] text-sm"
+                    className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--bg-primary)]/50 text-sm"
                   >
                     <Badge label={d.class_name} color={DEFECT_COLORS[d.class_name] || "var(--accent)"} />
-                    <span className="text-[var(--text-muted)] font-mono">
+                    <span className="text-[var(--text-muted)] font-mono text-xs">
                       {(d.confidence * 100).toFixed(0)}%
                     </span>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-[var(--success)]">No defects detected — clean weld</p>
+              <div className="text-center py-8">
+                <p className="text-sm text-[var(--success)]">No defects detected</p>
+                <p className="text-xs text-[var(--text-muted)] mt-1">Clean weld</p>
+              </div>
             )}
           </div>
         </div>

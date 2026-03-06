@@ -5,7 +5,11 @@ import { ProcessingView } from "./components/ProcessingView";
 import { BatchSummary } from "./components/BatchSummary";
 import { Dashboard } from "./components/Dashboard";
 import { inspectImages } from "./lib/api";
-import type { InspectionResult, BatchSummary as BatchSummaryType, SSEEvent } from "./lib/types";
+import type {
+  InspectionResult,
+  BatchSummary as BatchSummaryType,
+  SSEEvent,
+} from "./lib/types";
 
 function App() {
   const [confidence, setConfidence] = useState(0.24);
@@ -82,15 +86,16 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen flex flex-col">
       <Navbar
         confidence={confidence}
         onConfidenceChange={setConfidence}
         onReset={handleReset}
       />
 
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-        <section>
+      <main className="flex-1 max-w-[1400px] w-full mx-auto px-6 py-8 space-y-8">
+        {/* Upload section */}
+        <section className="max-w-2xl mx-auto animate-fade-in-up">
           <UploadZone
             files={files}
             onFilesChange={setFiles}
@@ -99,6 +104,7 @@ function App() {
           />
         </section>
 
+        {/* Processing view */}
         {isProcessing && (
           <section>
             <ProcessingView
@@ -112,17 +118,31 @@ function App() {
           </section>
         )}
 
+        {/* Batch summary */}
         {batchSummary && !isProcessing && (
           <section>
             <BatchSummary summary={batchSummary} results={batchResults} />
           </section>
         )}
 
+        {/* Dashboard */}
         <section>
-          <hr className="border-[var(--border)] mb-8" />
+          <div className="glow-line mb-8" />
           <Dashboard refreshKey={refreshKey} />
         </section>
       </main>
+
+      {/* Footer */}
+      <footer className="border-t border-[var(--border)] mt-auto">
+        <div className="max-w-[1400px] mx-auto px-6 py-4 flex items-center justify-between">
+          <p className="text-xs text-[var(--text-muted)]">
+            Siemens Energy Welding Inspection AI
+          </p>
+          <p className="text-xs text-[var(--text-muted)]">
+            YOLOv8m &middot; Demo Model
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }
