@@ -1,6 +1,6 @@
 ---
 title: Siemens Energy Welding Inspection AI
-emoji: welding
+emoji: "\U0001F3ED"
 colorFrom: blue
 colorTo: gray
 sdk: docker
