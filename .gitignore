@@ -1,0 +1,10 @@
+outputs/
+__pycache__/
+*.pyc
+.DS_Store
+runs/
+*.egg-info/
+dist/
+build/
+.env
+.claude/
