@@ -31,21 +31,11 @@ AI-powered welding defect detection system using YOLOv8m. Upload weld images for
 - **Configurable sensitivity** via confidence threshold slider
 - **Search and filter** inspection history by image name or defect type
 
-## Tech Stack
-
-- **Frontend:** React 18 + TypeScript + Vite + Tailwind CSS + Recharts
-- **Backend:** FastAPI + Uvicorn + Ultralytics YOLOv8
-- **Deployment:** Docker (multi-stage build) on HuggingFace Spaces
-
 ## Running Locally
 
 ```bash
-# Backend
 pip install -r requirements.txt
-uvicorn backend.main:app --host 0.0.0.0 --port 8501
-
-# Frontend (dev mode with hot reload)
-cd frontend && npm install && npm run dev
+streamlit run app.py
 ```
 
 ## Model
