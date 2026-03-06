@@ -3,9 +3,8 @@ title: Siemens Energy Welding Inspection
 emoji: 🏭
 colorFrom: teal
 colorTo: blue
-sdk: streamlit
-sdk_version: "1.41.0"
-app_file: app.py
+sdk: docker
+app_port: 8501
 pinned: false
 license: mit
 ---
