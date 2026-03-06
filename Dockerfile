@@ -17,7 +17,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ ./backend/
-COPY "yolov8_M_ model/" "./yolov8_M_ model/"
+COPY ["yolov8_M_ model/", "./yolov8_M_ model/"]
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 
 EXPOSE 8501
