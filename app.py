@@ -267,26 +267,63 @@ st.set_page_config(page_title="Siemens Energy Welding AI", layout="wide")
 # Inject CSS to stabilize layout and prevent jitter
 st.markdown("""
 <style>
-    /* Prevent iframe/element resize jitter */
-    .stImage, .stPlotlyChart, .stPyplot {
-        min-height: 50px;
-    }
-    /* Stabilize metric cards */
+    /* Lock metric card heights so they never collapse/expand */
     [data-testid="stMetric"] {
-        min-height: 80px;
+        min-height: 90px;
+        max-height: 90px;
+        overflow: hidden;
     }
-    /* Stabilize columns during processing */
+
+    /* Stabilize column blocks — prevent height thrashing */
     [data-testid="stHorizontalBlock"] {
-        min-height: 0;
-        align-items: flex-start;
+        align-items: flex-start !important;
     }
+
+    /* Lock chart containers to fixed height to prevent reflow */
+    [data-testid="stVegaLiteChart"],
+    .stPyplot {
+        min-height: 320px;
+        overflow: hidden;
+    }
+
+    /* Stabilize image containers in results section */
+    [data-testid="stImage"] {
+        min-height: 100px;
+    }
+
     /* Prevent progress bar from causing reflow */
     .stProgress {
         min-height: 30px;
     }
-    /* Keep the main content area stable */
+
+    /* Anchor scroll position — prevents page jump on rerun */
     [data-testid="stMainBlockContainer"] {
         overflow-anchor: auto;
+    }
+
+    /* Prevent table reflow */
+    [data-testid="stTable"] {
+        min-height: 60px;
+    }
+
+    /* Smooth out Streamlit's default transitions */
+    [data-testid="stMainBlockContainer"] * {
+        transition: none !important;
+    }
+
+    /* Prevent file uploader from resizing on state change */
+    [data-testid="stFileUploader"] {
+        min-height: 120px;
+    }
+
+    /* Lock expander height when closed */
+    [data-testid="stExpander"] {
+        min-height: 48px;
+    }
+
+    /* Prevent download buttons from shifting layout */
+    .stDownloadButton {
+        min-height: 48px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -488,14 +525,26 @@ if not df.empty:
         if all_labels:
             label_counts = pd.Series(all_labels).value_counts()
             col_chart, col_pie = st.columns([2, 1])
-            col_chart.bar_chart(label_counts)
 
-            fig, ax = plt.subplots(figsize=(4, 4))
-            ax.pie(label_counts, labels=label_counts.index, autopct="%1.1f%%", startangle=90)
-            col_pie.pyplot(fig)
-            plt.close(fig)
+            # Use matplotlib bar chart instead of st.bar_chart (Vega-Lite)
+            # to avoid iframe resize jitter
+            with col_chart:
+                fig_bar, ax_bar = plt.subplots(figsize=(6, 3.5))
+                ax_bar.barh(label_counts.index[::-1], label_counts.values[::-1], color="#4A90D9")
+                ax_bar.set_xlabel("Count")
+                ax_bar.set_title("Defect Type Distribution")
+                fig_bar.tight_layout()
+                st.pyplot(fig_bar)
+                plt.close(fig_bar)
 
-        # Image history viewer
+            with col_pie:
+                fig_pie, ax_pie = plt.subplots(figsize=(4, 3.5))
+                ax_pie.pie(label_counts, labels=label_counts.index, autopct="%1.1f%%", startangle=90)
+                fig_pie.tight_layout()
+                st.pyplot(fig_pie)
+                plt.close(fig_pie)
+
+        # Image history viewer — fixed-height container to prevent layout shift
         st.divider()
         st.subheader("Detailed Visual Inspection")
         selected_img = st.selectbox("Select Image from History:", filtered_df["image_name"].unique())
@@ -503,9 +552,15 @@ if not df.empty:
         if selected_img:
             img_path = os.path.join(OUTPUT_IMG_DIR, selected_img)
             if os.path.exists(img_path):
-                c1, c2 = st.columns([2, 1])
-                c1.image(img_path, use_container_width=True)
-                c2.table(filtered_df[filtered_df["image_name"] == selected_img])
+                viewer = st.container()
+                with viewer:
+                    c1, c2 = st.columns([2, 1])
+                    c1.image(img_path, use_container_width=True)
+                    c2.dataframe(
+                        filtered_df[filtered_df["image_name"] == selected_img],
+                        use_container_width=True,
+                        hide_index=True,
+                    )
 
         st.download_button(
             "Download Full Report (CSV)",
